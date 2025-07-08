@@ -21,7 +21,8 @@ SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
 # Construct absolute paths
 # --- IMPORTANT: UPDATE FILENAMES HERE ---
-FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250708_143813.csv"
+LOGO_PATH = None
+FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250708_143813_pct.csv"
 ACTUALS_PATH = PROJECT_ROOT / "Data/processed/Monthly_Consumption_Sales_2022_2025.csv"
 
 
@@ -166,8 +167,8 @@ def plot_forecast(actuals_df, forecast_run, target_col):
 
 
 # --- Main App Logic ---
-if LOGO_PATH.exists():
-    st.sidebar.image(str(LOGO_PATH), use_container_width=True)
+# if LOGO_PATH.exists():
+#     st.sidebar.image(str(LOGO_PATH), use_container_width=True)
 
 forecasts_df, actuals_df = load_data(FORECAST_PATH, ACTUALS_PATH)
 
