@@ -40,7 +40,7 @@ def load_data(forecast_path, actuals_path):
         return None, None
 
     forecasts_df['target_col'] = forecasts_df['target_col'].replace({
-        'Sales': 'Weight Sold', 'Consumption': 'Weight Consumed'
+        'Sales': 'Sales (lbs)', 'Consumption': 'Consumption (lbs)'
     })
 
     metric_cols = ['MAE', 'MAPE', 'RMSE', 'R2', 'Bias']
@@ -72,7 +72,7 @@ def load_data(forecast_path, actuals_path):
             data = ast.literal_eval(processed_str)
             df = pd.DataFrame(data)
             df['Month'] = pd.to_datetime(df['Month'])
-            df.rename(columns={'Sales': 'Weight Sold', 'Consumption': 'Weight Consumed'}, inplace=True)
+            df.rename(columns={'Sales': 'Sales (lbs)', 'Consumption': 'Consumption (lbs)'}, inplace=True)
             return df
         except:
             return pd.DataFrame()
@@ -111,7 +111,7 @@ def load_data(forecast_path, actuals_path):
         return None, None
 
     actuals_df['Month'] = pd.to_datetime(actuals_df['Month'])
-    rename_map = {'Sales': 'Weight Sold', 'Consumption': 'Weight Consumed'}
+    rename_map = {'Sales': 'Sales (lbs)', 'Consumption': 'Consumption (lbs)'}
     cols_to_rename = {old: new for old, new in rename_map.items() if old in actuals_df.columns}
     if cols_to_rename: actuals_df.rename(columns=cols_to_rename, inplace=True)
     actuals_df.set_index('Month', inplace=True)

@@ -6,7 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="d2b9946b-f3ab-4c56-b522-64d3700b92c7" name="Changes" comment="Updated Filtering Structure">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/processed/Forecasts/forecast_summary_20250708_143813.csv" beforeDir="false" afterPath="$PROJECT_DIR$/Data/processed/Forecasts/forecast_summary_20250708_143813.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/utils/fct_dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/fct_dashboard.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -95,7 +94,7 @@
       <updated>1751964519363</updated>
       <workItem from="1751964520529" duration="598000" />
       <workItem from="1751978724300" duration="5520000" />
-      <workItem from="1751984541668" duration="839000" />
+      <workItem from="1751984541668" duration="2511000" />
     </task>
     <task id="LOCAL-00001" summary="init commit">
       <option name="closed" value="true" />
@@ -129,7 +128,15 @@
       <option name="project" value="LOCAL" />
       <updated>1751984314478</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Updated Filtering Structure">
+      <option name="closed" value="true" />
+      <created>1751986172789</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1751986172789</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
