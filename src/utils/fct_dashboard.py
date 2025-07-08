@@ -19,7 +19,6 @@ All plots show the full history of actuals, with the forecast period highlighted
 # Get the directory of the current script
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
-LOGO_PATH = PROJECT_ROOT / "Data/Graphics/quantrue_logo.png"
 # Construct absolute paths
 # --- IMPORTANT: UPDATE FILENAMES HERE ---
 FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250708_143813.csv"
