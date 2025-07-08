@@ -18,13 +18,13 @@ All plots show the full history of actuals, with the forecast period highlighted
 # --- Path Configuration ---
 # Get the directory of the current script
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-# Navigate to the project root (assuming the script is in src/utils)
-# Adjust this if your structure is different.
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
+LOGO_PATH = PROJECT_ROOT / "Data/Graphics/quantrue_logo.png"
 # Construct absolute paths
 # --- IMPORTANT: UPDATE FILENAMES HERE ---
-FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250708_031202.csv"
-ACTUALS_PATH = PROJECT_ROOT / "Data/processed/final_merge.csv"
+FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250708_143813.csv"
+ACTUALS_PATH = PROJECT_ROOT / "Data/processed/Monthly_Consumption_Sales_2022_2025.csv"
+
 
 
 # ------------------------------------
@@ -32,278 +32,241 @@ ACTUALS_PATH = PROJECT_ROOT / "Data/processed/final_merge.csv"
 # --- Data Loading and Caching ---
 @st.cache_data
 def load_data(forecast_path, actuals_path):
-    """
-    Loads and preprocesses forecast and actuals data.
-    This function is cached to improve performance.
-    """
-    # --- Load Forecast Data ---
+    # --- Load and Standardize Forecasts DF ---
     try:
         forecasts_df = pd.read_csv(forecast_path)
     except FileNotFoundError:
         st.error(f"Forecast file not found. Checked path: {forecast_path}")
         return None, None
 
-    # --- Preprocess Forecasts DF ---
+    forecasts_df['target_col'] = forecasts_df['target_col'].replace({
+        'Sales': 'Weight Sold', 'Consumption': 'Weight Consumed'
+    })
+
     metric_cols = ['MAE', 'MAPE', 'RMSE', 'R2', 'Bias']
     for col in metric_cols:
         if col in forecasts_df.columns:
-            forecasts_df[col] = forecasts_df[col].astype(str)
             forecasts_df[col] = pd.to_numeric(
-                forecasts_df[col].str.replace('%', '', regex=False),
+                forecasts_df[col].astype(str).str.replace('%', '', regex=False),
                 errors='coerce'
             )
-            if col == 'MAPE' and any(forecasts_df[col] > 1):
-                forecasts_df[col] = forecasts_df[col] / 100.0
+            if col == 'MAPE' and not forecasts_df[col].empty and forecasts_df[col].max() > 1:
+                forecasts_df[col] /= 100.0
 
-    # Handle multiple date formats gracefully
-    forecasts_df['end_date'] = pd.to_datetime(forecasts_df['end_date'], errors='coerce')
-    forecasts_df.sort_values('end_date', ascending=False, inplace=True)
-    forecasts_df['window'] = forecasts_df['window'].fillna('N/A')
+    forecasts_df['window'] = forecasts_df['window'].fillna('N/A').astype(str)
 
     def create_regressor_str(row):
-        if not row['use_regressors']:
-            return 'No Regressors'
+        if not row['use_regressors']: return 'No Regressors'
         try:
             cols = ast.literal_eval(row['regressor_cols'])
-            return ', '.join(cols)
-        except (ValueError, SyntaxError, TypeError):
+            return ', '.join(cols) if cols else 'No Regressors'
+        except:
             return str(row['regressor_cols'])
 
     forecasts_df['regressor_str'] = forecasts_df.apply(create_regressor_str, axis=1)
 
-    # --- ROBUST PARSING FOR 'forecast_json' ---
     def parse_forecast_json(json_like_str):
-        if pd.isna(json_like_str):
-            return pd.DataFrame()
+        if pd.isna(json_like_str): return pd.DataFrame()
         try:
-            # Step 1: Replace Timestamp object with a parsable string
-            # This regex finds "Timestamp('...') and extracts the date string inside
             processed_str = re.sub(r"Timestamp\('([^']*)'\)", r"'\1'", json_like_str)
-            # Step 2: Safely evaluate the string to a Python list of dicts
             data = ast.literal_eval(processed_str)
-            # Step 3: Convert to DataFrame
             df = pd.DataFrame(data)
             df['Month'] = pd.to_datetime(df['Month'])
+            df.rename(columns={'Sales': 'Weight Sold', 'Consumption': 'Weight Consumed'}, inplace=True)
             return df
-        except (ValueError, SyntaxError, TypeError) as e:
-            # st.warning(f"Could not parse forecast_json: {e}\nString was: {json_like_str[:100]}...")
+        except:
             return pd.DataFrame()
 
     forecasts_df['forecast_df'] = forecasts_df['forecast_json'].apply(parse_forecast_json)
 
-    # --- Load and Aggregate Actuals DF ---
+    forecasts_df['forecast_start_date'] = forecasts_df['forecast_df'].apply(
+        lambda df: df['Month'].min() if not df.empty else pd.NaT
+    )
+    forecasts_df.dropna(subset=['forecast_start_date'], inplace=True)
+    forecasts_df['forecast_start_date_str'] = forecasts_df['forecast_start_date'].dt.strftime('%Y-%m-%d')
+    forecasts_df.sort_values('forecast_start_date', ascending=False, inplace=True)
+
+    # --- NEW: Create a truly unique key for each row ---
+    # We combine run_id with other differentiating columns.
+    # The first (unnamed) column is a unique index from the original CSV write.
+    # We will use it to guarantee uniqueness.
+    if 'Unnamed: 0' in forecasts_df.columns:
+        forecasts_df['unique_key'] = forecasts_df['run_id'].astype(str) + '_' + forecasts_df['Unnamed: 0'].astype(str)
+    else:
+        # Fallback in case the unnamed column is not present
+        forecasts_df['unique_key'] = forecasts_df.index.astype(str) + '_' + forecasts_df['run_id'].astype(str)
+
+    # --- FIX: Remove logical duplicates (Now redundant but safe to keep) ---
+    cols_to_check_duplicates = [
+        'model', 'target_col', 'window', 'horizon',
+        'regressor_str', 'forecast_start_date_str'
+    ]
+    forecasts_df.drop_duplicates(subset=cols_to_check_duplicates, keep='first', inplace=True)
+
+    # --- Load and Standardize Actuals DF ---
     try:
-        actuals_source_df = pd.read_csv(actuals_path)
+        actuals_df = pd.read_csv(actuals_path)
     except FileNotFoundError:
         st.error(f"Actuals file not found at: {actuals_path}")
         return None, None
 
-    actuals_source_df['Month'] = pd.to_datetime(actuals_source_df['Month'])
-
-    # Correctly aggregate the data to the monthly level
-    actuals_df = actuals_source_df.groupby('Month')[['Weight Sold', 'Weight Consumed']].sum().reset_index()
+    actuals_df['Month'] = pd.to_datetime(actuals_df['Month'])
+    rename_map = {'Sales': 'Weight Sold', 'Consumption': 'Weight Consumed'}
+    cols_to_rename = {old: new for old, new in rename_map.items() if old in actuals_df.columns}
+    if cols_to_rename: actuals_df.rename(columns=cols_to_rename, inplace=True)
     actuals_df.set_index('Month', inplace=True)
 
     return forecasts_df, actuals_df
 
 
-# --- Plotting Function (No changes needed) ---
+# --- Plotting Function (No changes needed from last working version) ---
 def plot_forecast(actuals_df, forecast_run, target_col):
-    """
-    Generates an interactive Plotly chart for a single forecast run
-    with improved visual continuity and accurate labeling.
-    """
+    # This function is the same as the last version you approved.
     fig = go.Figure()
-
     forecast_df = forecast_run['forecast_df'].copy()
-    if forecast_df.empty:
-        # Cannot plot if there's no forecast data
-        return fig
+    if forecast_df.empty: return fig
 
-        # --- Fix #2: Determine the correct forecast start and end dates ---
     forecast_start_date = forecast_df['Month'].min()
     forecast_end_date = forecast_df['Month'].max()
+    last_actual_date = forecast_start_date - pd.DateOffset(months=1)
 
-    # --- Fix #3: Filter actuals to not show data beyond the forecast horizon ---
     plot_actuals_df = actuals_df[actuals_df.index <= forecast_end_date]
 
-    # 1. Plot the historical and relevant future actuals
-    fig.add_trace(go.Scatter(
-        x=plot_actuals_df.index,
-        y=plot_actuals_df[target_col],
-        mode='lines',
-        name='Actuals (Full History)',
-        line=dict(color='gray')
-    ))
+    if last_actual_date not in actuals_df.index:
+        continuous_forecast_df = forecast_df
+        continuous_actuals_df = forecast_df
+    else:
+        last_actual_row = actuals_df.loc[[last_actual_date]].reset_index()
+        last_actual_value = last_actual_row.iloc[0][target_col]
+        connection_point = pd.DataFrame(
+            [{'Month': last_actual_date, 'forecast': last_actual_value, target_col: last_actual_value}])
+        continuous_forecast_df = pd.concat(
+            [connection_point[['Month', 'forecast']], forecast_df[['Month', 'forecast']]], ignore_index=True)
+        continuous_actuals_df = pd.concat([connection_point[['Month', target_col]], forecast_df[['Month', target_col]]],
+                                          ignore_index=True)
 
-    # --- Fix #1: Create a continuous forecast line ---
-    # Get the last actual data point before the forecast starts
-    last_actual_date = forecast_start_date - pd.DateOffset(months=1)
-    last_actual_row = actuals_df.loc[[last_actual_date]].reset_index()
+    fig.add_trace(
+        go.Scatter(x=plot_actuals_df.index, y=plot_actuals_df[target_col], mode='lines', name='Actuals (Full History)',
+                   line=dict(color='#CCCCCC', width=2)))
+    fig.add_trace(go.Scatter(x=continuous_actuals_df['Month'], y=continuous_actuals_df[target_col], mode='lines',
+                             name='Actuals (During Forecast)', line=dict(color='#FFA500', width=2.5)))
+    fig.add_trace(go.Scatter(x=continuous_forecast_df['Month'], y=continuous_forecast_df['forecast'], mode='lines',
+                             name=f"Forecast", line=dict(color='#00E5B4', dash='dash', width=2.5)))
 
-    # Create the continuous forecast series
-    continuous_forecast_df = pd.concat([
-        pd.DataFrame([{
-            'Month': last_actual_date,
-            'forecast': last_actual_row.iloc[0][target_col]
-        }]),
-        forecast_df[['Month', 'forecast']]
-    ], ignore_index=True)
-
-    # 2. Plot the continuous forecast line
-    fig.add_trace(go.Scatter(
-        x=continuous_forecast_df['Month'],
-        y=continuous_forecast_df['forecast'],
-        mode='lines',
-        name=f"Forecast ({forecast_run['model']})",
-        line=dict(color='red', dash='dash')
-    ))
-
-    # 3. Plot the actuals during the forecast period for comparison
-    fig.add_trace(go.Scatter(
-        x=forecast_df['Month'],
-        y=forecast_df[target_col],
-        mode='lines',
-        name='Actuals (During Forecast)',
-        line=dict(color='blue', width=2.5)
-    ))
-
-    # 4. Add a vertical line at the CORRECT forecast start date
-    fig.add_vline(
-        x=forecast_start_date,  # Use the corrected start date
-        line_width=2,
-        line_dash="dot",
-        line_color="black"
-    )
-
-    # 5. Add the annotation manually
-    fig.add_annotation(
-        x=forecast_start_date,
-        y=1,
-        yref="paper",
-        text="Forecast Start",
-        showarrow=True,
-        arrowhead=7,
-        ax=0,
-        ay=-40
-    )
+    fig.add_vline(x=last_actual_date, line_width=2, line_dash="dot", line_color="white", opacity=0.8)
+    fig.add_annotation(x=last_actual_date, y=1.05, yref="paper", text="Forecast Start", showarrow=False,
+                       xanchor="center", font=dict(color="white", size=12))
 
     fig.update_layout(
-        title=f"Forecast vs. Actuals for: {forecast_run['run_id']}",
-        xaxis_title="Month",
-        yaxis_title=target_col,
-        legend_title="Legend"
+        title=f"Forecast vs. Actuals",
+        xaxis_title="Month", yaxis_title=target_col, legend_title="Legend",
+        template="plotly_dark", font=dict(color="white"),
+        legend=dict(bgcolor='rgba(0,0,0,0.3)', y=0.99, x=0.99, yanchor='top', xanchor='right')
     )
-
     return fig
 
 
 # --- Main App Logic ---
+if LOGO_PATH.exists():
+    st.sidebar.image(str(LOGO_PATH), use_container_width=True)
+
 forecasts_df, actuals_df = load_data(FORECAST_PATH, ACTUALS_PATH)
 
 if forecasts_df is not None and actuals_df is not None:
-    # --- Sidebar Filters ---
+    # --- Sidebar with CASCADING Multi-Select Filters ---
     with st.sidebar:
-        st.header("1. Select Primary Filters")
+        st.header("Forecast Filters")
 
-        selected_target = st.selectbox(
-            'Target Variable',
-            options=forecasts_df['target_col'].unique()
-        )
 
-        selected_model = st.selectbox(
-            'Forecasting Model',
-            options=forecasts_df['model'].unique()
-        )
+        # Helper for creating multiselect with "All" option
+        def multiselect_with_all(label, options, default_all=True):
+            all_key = f"All {label}"
+            options_with_all = [all_key] + options
+            default = [all_key] if default_all else []
+            selected = st.multiselect(label, options_with_all, default=default)
+            if all_key in selected or not selected:
+                return options
+            return selected
 
-        # Filter dataframe based on primary selections
-        filtered_df = forecasts_df[
-            (forecasts_df['target_col'] == selected_target) &
-            (forecasts_df['model'] == selected_model)
-            ].copy()  # Use .copy() to avoid SettingWithCopyWarning
 
-        st.header("2. Refine Selections")
+        # --- Sequential Filtering ---
+        # 1. Model
+        model_options = sorted(forecasts_df['model'].unique())
+        selected_models = multiselect_with_all('Model', model_options)
+        df1 = forecasts_df[forecasts_df['model'].isin(selected_models)]
 
-        selected_horizon = st.selectbox(
-            'Forecast Horizon (Months)',
-            options=sorted(filtered_df['horizon'].unique())
-        )
+        # 2. Target Variable
+        target_options = sorted(df1['target_col'].unique())
+        selected_targets = multiselect_with_all('Target Variable', target_options)
+        df2 = df1[df1['target_col'].isin(selected_targets)]
 
-        filtered_df = filtered_df[filtered_df['horizon'] == selected_horizon]
+        # 3. Horizon
+        horizon_options = sorted(df2['horizon'].unique())
+        selected_horizons = multiselect_with_all('Horizon (Months)', horizon_options)
+        df3 = df2[df2['horizon'].isin(selected_horizons)]
 
-        if selected_model == 'ma':
-            selected_window = st.selectbox(
-                'Moving Average Window',
-                options=sorted(filtered_df['window'].unique())
-            )
-            filtered_df = filtered_df[filtered_df['window'] == selected_window]
+        # 4. Forecast Start Date
+        date_options = sorted(df3['forecast_start_date_str'].unique(), reverse=True)
+        selected_start_dates = multiselect_with_all('Forecast Start Date', date_options)
+        df4 = df3[df3['forecast_start_date_str'].isin(selected_start_dates)]
 
-        elif selected_model == 'prophet':
-            regressor_options = sorted(filtered_df['regressor_str'].unique())
-            if regressor_options:
-                selected_regressor = st.selectbox(
-                    'Regressor(s) Used',
-                    options=regressor_options
-                )
-                filtered_df = filtered_df[filtered_df['regressor_str'] == selected_regressor]
+        st.subheader("Model-Specific Filters")
 
-        date_options = sorted(filtered_df['end_date'].dt.date.unique(), reverse=True)
-        if date_options:
-            selected_end_date = st.selectbox(
-                'Backtest End Date',
-                options=date_options
-            )
-            final_filtered_df = filtered_df[filtered_df['end_date'].dt.date == selected_end_date]
-        else:
-            final_filtered_df = pd.DataFrame()  # No dates match, so empty df
+        # 5. MA Window Filter (enabled only if 'ma' is selected)
+        is_ma_selected = 'ma' in selected_models
+        window_options = sorted(df4[df4['model'] == 'ma']['window'].unique())
+        selected_windows = st.multiselect('MA Window', window_options, default=window_options,
+                                          disabled=not is_ma_selected)
 
-    # --- Main Panel for Comparison ---
-    st.header("3. Compare Forecast Runs")
+        # 6. Prophet Regressor Filter (enabled only if 'prophet' is selected)
+        is_prophet_selected = 'prophet' in selected_models
+        regressor_options = sorted(df4[df4['model'] == 'prophet']['regressor_str'].unique())
+        selected_regressors = st.multiselect('Prophet Regressors', regressor_options, default=regressor_options,
+                                             disabled=not is_prophet_selected)
+
+        # --- Final Combination of Filters ---
+        ma_df = df4[
+            (df4['model'] == 'ma') & (df4['window'].isin(selected_windows))] if is_ma_selected else pd.DataFrame()
+        prophet_df = df4[(df4['model'] == 'prophet') & (
+            df4['regressor_str'].isin(selected_regressors))] if is_prophet_selected else pd.DataFrame()
+        final_filtered_df = pd.concat([ma_df, prophet_df]).sort_index()
+
+    # --- Main Panel Displaying Results ---
+    st.header("Filtered Forecast Results")
+    st.markdown(f"**Displaying {len(final_filtered_df)} forecast runs.** Use the sidebar to refine your selection.")
 
     if final_filtered_df.empty:
-        st.warning("No forecast runs match the selected criteria. Please adjust your filters.")
+        st.warning("No forecast runs match the selected criteria. Please adjust sidebar filters.")
     else:
-        selected_runs = st.multiselect(
-            'Select runs to display:',
-            options=final_filtered_df['run_id'].tolist(),
-            default=final_filtered_df['run_id'].tolist()[:1]
-        )
+        for _, run_data in final_filtered_df.iterrows():
+            if run_data['model'] == 'ma':
+                param_str = f"Window: {int(float(run_data['window']))}"
+            else:
+                param_str = f"Regressors: {run_data['regressor_str']}"
 
-        if not selected_runs:
-            st.info("Select at least one run from the dropdown above to see the results.")
-        else:
-            for run_id in selected_runs:
-                run_data = final_filtered_df[final_filtered_df['run_id'] == run_id].iloc[0]
+            expander_title = f"**{run_data['model'].upper()}** for **{run_data['target_col']}** | {param_str} | Horizon: {run_data['horizon']}m | Start: {run_data['forecast_start_date_str']}"
 
-                with st.expander(f"**Run ID:** {run_id}", expanded=True):
-                    col1, col2 = st.columns([1, 2])
+            with st.expander(expander_title, expanded=True):
+                col1, col2 = st.columns([2, 1])
 
-                    with col1:
-                        st.subheader("Metrics")
-                        mape_val = run_data['MAPE']
-                        if pd.notna(mape_val):
-                            st.metric("MAPE", f"{mape_val:.2%}")
-                        st.metric("RMSE", f"{run_data['RMSE']:,.2f}")
-                        st.metric("MAE", f"{run_data['MAE']:,.2f}")
-                        st.metric("R² Score", f"{run_data['R2']:.3f}")
-                        st.metric("Bias", f"{run_data['Bias']:,.2f}")
+                with col1:
+                    fig = plot_forecast(actuals_df, run_data, run_data['target_col'])
+                    st.plotly_chart(fig, use_container_width=True, key=f"plot_{run_data['unique_key']}")
 
-                        if run_data['model'] == 'prophet' and pd.notna(run_data['best_params']):
-                            st.subheader("Best Parameters")
-                            try:
-                                params_dict = ast.literal_eval(run_data['best_params'])
-                                st.json(params_dict, expanded=False)
-                            except (ValueError, SyntaxError):
-                                st.text(run_data['best_params'])
+                with col2:
+                    st.subheader("Metrics")
+                    st.metric("MAPE", f"{run_data.get('MAPE', 0):.2%}")
+                    st.metric("RMSE", f"{run_data.get('RMSE', 0):,.2f}")
+                    st.metric("MAE", f"{run_data.get('MAE', 0):,.2f}")
+                    st.metric("R² Score", f"{run_data.get('R2', 0):.3f}")
+                    st.metric("Bias", f"{run_data.get('Bias', 0):,.2f}")
 
-                    with col2:
-                        st.subheader("Forecast Plot")
-                        if not run_data['forecast_df'].empty:
-                            fig = plot_forecast(actuals_df, run_data, selected_target)
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.warning(
-                                "Could not generate plot for this run (forecast data might be missing or failed to parse).")
+                    if run_data['model'] == 'prophet' and pd.notna(run_data['best_params']):
+                        st.subheader("Best Parameters")
+                        try:
+                            params_dict = ast.literal_eval(run_data['best_params'])
+                            st.json(params_dict, expanded=False)
+                        except:
+                            st.text(run_data['best_params'])
 else:
-    st.error(
-        "Dashboard could not be loaded. Please check the file paths and ensure the CSVs are in the correct format.")
+    st.error("Dashboard could not be loaded. Please check file paths and data format.")
