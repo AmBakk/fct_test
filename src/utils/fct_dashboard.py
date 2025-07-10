@@ -22,8 +22,8 @@ PROJECT_ROOT = SCRIPT_DIR.parent.parent
 # Construct absolute paths
 # --- IMPORTANT: UPDATE FILENAMES HERE ---
 LOGO_PATH = None
-FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250708_143813_pct.csv"
-ACTUALS_PATH = PROJECT_ROOT / "Data/processed/Monthly_Consumption_Sales_2022_2025.csv"
+FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250709_180322.csv"
+ACTUALS_PATH = PROJECT_ROOT / "Data/processed/final_merge.csv"
 
 
 
@@ -110,7 +110,7 @@ def load_data(forecast_path, actuals_path):
         st.error(f"Actuals file not found at: {actuals_path}")
         return None, None
 
-    actuals_df['Month'] = pd.to_datetime(actuals_df['Month'])
+    actuals_df['Month'] = pd.to_datetime(actuals_df['YearMonth'])
     rename_map = {'Sales': 'Sales (lbs)', 'Consumption': 'Consumption (lbs)'}
     cols_to_rename = {old: new for old, new in rename_map.items() if old in actuals_df.columns}
     if cols_to_rename: actuals_df.rename(columns=cols_to_rename, inplace=True)
@@ -121,7 +121,7 @@ def load_data(forecast_path, actuals_path):
 
 # --- Plotting Function (No changes needed from last working version) ---
 def plot_forecast(actuals_df, forecast_run, target_col):
-    # This function is the same as the last version you approved.
+    # This function is the same as the last version, with the addition of date filtering.
     fig = go.Figure()
     forecast_df = forecast_run['forecast_df'].copy()
     if forecast_df.empty: return fig
@@ -130,13 +130,27 @@ def plot_forecast(actuals_df, forecast_run, target_col):
     forecast_end_date = forecast_df['Month'].max()
     last_actual_date = forecast_start_date - pd.DateOffset(months=1)
 
-    plot_actuals_df = actuals_df[actuals_df.index <= forecast_end_date]
+    # --- START OF NEW CODE ---
+    # Apply target-specific date limits to the actuals data for plotting
+    plot_actuals_df = actuals_df.copy()
 
-    if last_actual_date not in actuals_df.index:
+    if target_col == 'Sales (lbs)':
+        start_date = '2022-02-01'
+        end_date = '2025-05-31'
+        plot_actuals_df = plot_actuals_df.loc[start_date:end_date]
+    elif target_col == 'Consumption (lbs)':
+        start_date = '2019-01-01'
+        end_date = '2025-02-28'
+        plot_actuals_df = plot_actuals_df.loc[start_date:end_date]
+
+    # Truncate to the forecast end date (this happens after the above filter)
+    plot_actuals_df = plot_actuals_df[plot_actuals_df.index <= forecast_end_date]
+
+    if last_actual_date not in plot_actuals_df.index:  # Check against the filtered actuals
         continuous_forecast_df = forecast_df
         continuous_actuals_df = forecast_df
     else:
-        last_actual_row = actuals_df.loc[[last_actual_date]].reset_index()
+        last_actual_row = plot_actuals_df.loc[[last_actual_date]].reset_index()  # Use filtered actuals
         last_actual_value = last_actual_row.iloc[0][target_col]
         connection_point = pd.DataFrame(
             [{'Month': last_actual_date, 'forecast': last_actual_value, target_col: last_actual_value}])
