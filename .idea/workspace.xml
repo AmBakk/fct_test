@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d2b9946b-f3ab-4c56-b522-64d3700b92c7" name="Changes" comment="Changed 'Wight ...' to Sales/Consumption">
-      <change afterPath="$PROJECT_DIR$/Data/processed/Forecasts/forecast_summary_20250709_180322.csv" afterDir="false" />
+    <list default="true" id="d2b9946b-f3ab-4c56-b522-64d3700b92c7" name="Changes" comment="Forecast improvement, more data">
+      <change afterPath="$PROJECT_DIR$/Data/processed/Forecasts/forecast_summary_20250710_230928.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/processed/final_merge.csv" beforeDir="false" afterPath="$PROJECT_DIR$/Data/processed/final_merge.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/utils/fct_dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/fct_dashboard.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -60,6 +59,7 @@
       <recent name="C:\Users\Amine Bakkoury\Desktop\Projects\FET\fct_test\Data\processed\Forecasts" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Amine Bakkoury\Desktop\Projects\FET\fct_test\Data\processed\Forecasts" />
       <recent name="C:\Users\Amine Bakkoury\Desktop\Projects\FET\fct_test\Data\processed" />
     </key>
   </component>
@@ -109,7 +109,9 @@
       <workItem from="1752052368133" duration="3000" />
       <workItem from="1752078100024" duration="124000" />
       <workItem from="1752132548979" duration="208000" />
-      <workItem from="1752132805412" duration="2242000" />
+      <workItem from="1752132805412" duration="3888000" />
+      <workItem from="1752182064172" duration="230000" />
+      <workItem from="1752182371175" duration="1864000" />
     </task>
     <task id="LOCAL-00001" summary="init commit">
       <option name="closed" value="true" />
@@ -159,7 +161,15 @@
       <option name="project" value="LOCAL" />
       <updated>1751987683545</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Forecast improvement, more data">
+      <option name="closed" value="true" />
+      <created>1752135260672</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1752135260672</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -181,6 +191,7 @@
     <MESSAGE value="update req.txt" />
     <MESSAGE value="Updated Filtering Structure" />
     <MESSAGE value="Changed 'Wight ...' to Sales/Consumption" />
-    <option name="LAST_COMMIT_MESSAGE" value="Changed 'Wight ...' to Sales/Consumption" />
+    <MESSAGE value="Forecast improvement, more data" />
+    <option name="LAST_COMMIT_MESSAGE" value="Forecast improvement, more data" />
   </component>
 </project>

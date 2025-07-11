@@ -135,7 +135,7 @@ def plot_forecast(actuals_df, forecast_run, target_col):
     plot_actuals_df = actuals_df.copy()
 
     if target_col == 'Sales (lbs)':
-        start_date = '2022-02-01'
+        start_date = '2022-01-01'
         end_date = '2025-05-31'
         plot_actuals_df = plot_actuals_df.loc[start_date:end_date]
     elif target_col == 'Consumption (lbs)':
@@ -269,11 +269,11 @@ if forecasts_df is not None and actuals_df is not None:
 
                 with col2:
                     st.subheader("Metrics")
-                    st.metric("MAPE", f"{run_data.get('MAPE', 0):.2%}")
-                    st.metric("RMSE", f"{run_data.get('RMSE', 0):,.2f}")
-                    st.metric("MAE", f"{run_data.get('MAE', 0):,.2f}")
+                    st.metric("MAPE", f"{run_data.get('MAPE', 0):.1%}")
+                    st.metric("RMSE", f"{run_data.get('RMSE', 0):,.0f}")
+                    st.metric("MAE", f"{run_data.get('MAE', 0):,.0f}")
                     st.metric("R² Score", f"{run_data.get('R2', 0):.3f}")
-                    st.metric("Bias", f"{run_data.get('Bias', 0):,.2f}")
+                    st.metric("Bias", f"{run_data.get('Bias', 0):,.0f}")
 
                     if run_data['model'] == 'prophet' and pd.notna(run_data['best_params']):
                         st.subheader("Best Parameters")
