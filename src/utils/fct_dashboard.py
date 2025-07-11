@@ -22,7 +22,7 @@ PROJECT_ROOT = SCRIPT_DIR.parent.parent
 # Construct absolute paths
 # --- IMPORTANT: UPDATE FILENAMES HERE ---
 LOGO_PATH = None
-FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250709_180322.csv"
+FORECAST_PATH = PROJECT_ROOT / "Data/processed/Forecasts/forecast_summary_20250708_143813.csv"
 ACTUALS_PATH = PROJECT_ROOT / "Data/processed/final_merge.csv"
 
 
